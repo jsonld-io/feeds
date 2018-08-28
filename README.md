@@ -4,7 +4,7 @@ ATOM feeds in JSON-LD.
 
 ```javascript
 {
-  "@context": "https://json-ld.io/2018/Atom",
+  "@context": "https://json-ld.io/feeds",
   "@type": "Feed",
   "title": "Example Feed",
   "subtitle": "A subtitle.",
@@ -53,7 +53,7 @@ ATOM feeds in JSON-LD.
 
 ```javascript
 {
-  "@context": "https://json-ld.io/2018/Atom",
+  "@context": "https://json-ld.io/feeds",
   "@type": "Feed",
   "title": "Example Feed",
   "subtitle": "A subtitle.",
