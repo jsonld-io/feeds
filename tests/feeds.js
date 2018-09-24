@@ -2,16 +2,28 @@ const Assert = require("assert");
 
 describe("feeds", async function() {
 
-  function getReader(feed, fetch) {
-   if (feed["@context"] != "https://feeds.json-ld.io/2005/Atom" ||
-       feed["@type"] != "Feed") {
-    throw new Error(`Invalid feed format: (@context: ${feed["@context"]}, @type: ${feed["@type"]})`);
-   }
-   
-   let current = feed;
+  function getReader(url, fetch, token) {
+   let id = url;
+   let current;
    let i = 0;
+
    return {
     async read() {
+     if (!current) {
+      let response = await fetch(id);
+      if (!response.ok()) {
+       return {done: true};
+      }
+      current = await response.json();
+     }
+
+     // console.log(current);
+
+     if (current["@context"] != "https://feeds.json-ld.io/2005/Atom" ||
+         current["@type"] != "Feed") {
+      throw new Error(`Invalid feed format`);
+     }
+
      if (!current.entries) {
       return {done: true};
      }
@@ -51,19 +63,40 @@ describe("feeds", async function() {
    }
   }
 
+  let fetcher = (content) => {
+   return (url) => {
+    if (content[url]) {
+     return {
+      ok() {
+       return true;
+      },
+      async json() {
+       return content[url];
+      }
+     }
+    }
+
+    return {
+     ok() {
+      return false;
+     }
+    };
+   };
+  };
+
   it("invalid", async function() {
     try {
-     let reader = getReader({});
+     let reader = getReader("./", fecher({"./": {}}));
     } catch (e) {
      // surpress
     }
   });
 
   it("no entries", async function() {
-    let reader = getReader({
+    let reader = getReader("./", fetcher({"./" : {
      "@context": "https://feeds.json-ld.io/2005/Atom",
      "@type": "Feed",
-    });
+    }}));
 
     let result = [];
     await foreach(reader, (entry) => {
@@ -74,11 +107,11 @@ describe("feeds", async function() {
    });
 
   it("empty entries", async function() {
-    let reader = getReader({
+    let reader = getReader("./", fetcher({"./": {
      "@context": "https://feeds.json-ld.io/2005/Atom",
      "@type": "Feed",
      "entries": []
-    });
+    }}));
 
     let result = [];
     await foreach(reader, (entry) => {
@@ -89,11 +122,11 @@ describe("feeds", async function() {
    });
 
   it("single entry", async function() {
-    let reader = getReader({
+    let reader = getReader("./", fetcher({"./": {
      "@context": "https://feeds.json-ld.io/2005/Atom",
      "@type": "Feed",
      "entries": ["hello"]
-    });
+      }}));
 
     let result = [];
     await foreach(reader, (entry) => {
@@ -104,11 +137,11 @@ describe("feeds", async function() {
    });
 
   it("multiple entries", async function() {
-    let reader = getReader({
+    let reader = getReader("./", fetcher({"./": {
      "@context": "https://feeds.json-ld.io/2005/Atom",
      "@type": "Feed",
      "entries": ["foo", "bar", "hello", "world"]
-    });
+       }}));
 
     let result = [];
     await foreach(reader, (entry) => {
@@ -119,30 +152,25 @@ describe("feeds", async function() {
    });
 
   it("next page", async function() {
-    let fetch = async function(url) {
-     return {
-      ok() {
-       return true;
-      },
-      async json() {
-       return {
+    let pages = fetcher({
+       "./": {
+        "@context": "https://feeds.json-ld.io/2005/Atom",
+        "@type": "Feed",
+        "entries": ["foo", "bar"],
+        "links": [{
+          "@type": "Link",
+          "rel": "next",
+          "href": "page2.jsonld"
+         }]
+       },
+       "page2.jsonld": {
         "@context": "https://feeds.json-ld.io/2005/Atom",
         "@type": "Feed",
         "entries": ["hello", "world"],
-       };
-      }
-     };
-    };
-    let reader = getReader({
-     "@context": "https://feeds.json-ld.io/2005/Atom",
-     "@type": "Feed",
-     "entries": ["foo", "bar"],
-     "links": [{
-       "@type": "Link",
-       "rel": "next",
-       "href": "page2.xml"
-     }]
-    }, fetch);
+       }
+     });
+
+    let reader = getReader("./", pages);
 
     let result = [];
     await foreach(reader, (entry) => {
@@ -157,6 +185,51 @@ describe("feeds", async function() {
     ]);
    });
 
+  it("fetch error", async function() {
+    let reader = getReader("./", fetcher({
+       "./": {
+        "@context": "https://feeds.json-ld.io/2005/Atom",
+        "@type": "Feed",
+        "entries": ["foo", "bar"],
+        "links": [{
+          "@type": "Link",
+          "rel": "next",
+          "href": "not-found.jsonld"
+         }]
+       }
+      }));
+
+    let result = [];
+    await foreach(reader, (entry) => {
+      result.push(entry)
+    });
+    
+    assertThat(result).equalsTo([
+      "foo", 
+      "bar"
+    ]);
+   });
+
+  it.skip("checkpoints", async function() {
+    let reader = getReader({
+     "@context": "https://feeds.json-ld.io/2005/Atom",
+     "@type": "Feed",
+     "entries": ["foo", "bar"],
+    });
+
+    let result = [];
+
+    await foreach(reader, (entry, checkpoint) => {
+      result.push(entry);
+      console.log(checkpoint);
+    });
+    
+    assertThat(result).equalsTo([
+      "foo", 
+      "bar"
+    ]);
+   });
+
   it.skip("full", function() {
     let feed = {
      "@context": "https://feeds.json-ld.io/2005/Atom",
@@ -164,23 +237,23 @@ describe("feeds", async function() {
      "links": [{
        "@type": "Link",
        "rel": "self",
-       "href": "page1.xml"
+       "href": "page1.jsonld"
       }, {
        "@type": "Link",
        "rel": "first",
-       "href": "page0.xml"
+       "href": "page0.jsonld"
       }, {
        "@type": "Link",
        "rel": "last",
-       "href": "page3.xml"
+       "href": "page3.jsonld"
       }, {
        "@type": "Link",
        "rel": "next",
-       "href": "page2.xml"
+       "href": "page2.jsonld"
       }, {
        "@type": "Link",
        "rel": "previous",
-       "href": "page0.xml"
+       "href": "page0.jsonld"
       }]
     };
 
