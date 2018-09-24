@@ -28,7 +28,11 @@ describe("feeds", async function() {
       .find(link => link.rel == "next");
      
      if (next) {
-      current = await fetch(next.href);
+      let response = await fetch(next.href);
+      if (!response.ok()) {
+       return {done: true};
+      }
+      current = await response.json();
       return this.read();
      }
 
@@ -117,9 +121,16 @@ describe("feeds", async function() {
   it("next page", async function() {
     let fetch = async function(url) {
      return {
-      "@context": "https://feeds.json-ld.io/2005/Atom",
-      "@type": "Feed",
-      "entries": ["hello", "world"],
+      ok() {
+       return true;
+      },
+      async json() {
+       return {
+        "@context": "https://feeds.json-ld.io/2005/Atom",
+        "@type": "Feed",
+        "entries": ["hello", "world"],
+       };
+      }
      };
     };
     let reader = getReader({
