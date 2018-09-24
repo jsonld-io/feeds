@@ -2,7 +2,7 @@ const Assert = require("assert");
 
 describe("feeds", async function() {
 
-  function getReader(feed) {
+  function getReader(feed, fetch) {
    if (feed["@context"] != "https://feeds.json-ld.io/2005/Atom" ||
        feed["@type"] != "Feed") {
     throw new Error(`Invalid feed format: (@context: ${feed["@context"]}, @type: ${feed["@type"]})`);
@@ -20,6 +20,16 @@ describe("feeds", async function() {
       let value = current.entries[i];
       i++;
       return {done: false, value: value};
+     }
+
+     i = 0;
+
+     let next = (current.links || [])
+      .find(link => link.rel == "next");
+     
+     if (next) {
+      current = await fetch(next.href);
+      return this.read();
      }
 
      return {done: true};
@@ -52,7 +62,9 @@ describe("feeds", async function() {
     });
 
     let result = [];
-    await foreach(reader, (entry) => result.push(entry));
+    await foreach(reader, (entry) => {
+      result.push(entry)
+    });
     
     assertThat(result).equalsTo([]);
    });
@@ -65,7 +77,9 @@ describe("feeds", async function() {
     });
 
     let result = [];
-    await foreach(reader, (entry) => result.push(entry));
+    await foreach(reader, (entry) => {
+      result.push(entry)
+    });
     
     assertThat(result).equalsTo([]);
    });
@@ -78,7 +92,9 @@ describe("feeds", async function() {
     });
 
     let result = [];
-    await foreach(reader, (entry) => result.push(entry));
+    await foreach(reader, (entry) => {
+      result.push(entry)
+    });
     
     assertThat(result).equalsTo(["hello"]);
    });
@@ -91,9 +107,43 @@ describe("feeds", async function() {
     });
 
     let result = [];
-    await foreach(reader, (entry) => result.push(entry));
+    await foreach(reader, (entry) => {
+      result.push(entry)
+    });
     
     assertThat(result).equalsTo(["foo", "bar", "hello", "world"]);
+   });
+
+  it("next page", async function() {
+    let fetch = async function(url) {
+     return {
+      "@context": "https://feeds.json-ld.io/2005/Atom",
+      "@type": "Feed",
+      "entries": ["hello", "world"],
+     };
+    };
+    let reader = getReader({
+     "@context": "https://feeds.json-ld.io/2005/Atom",
+     "@type": "Feed",
+     "entries": ["foo", "bar"],
+     "links": [{
+       "@type": "Link",
+       "rel": "next",
+       "href": "page2.xml"
+     }]
+    }, fetch);
+
+    let result = [];
+    await foreach(reader, (entry) => {
+      result.push(entry)
+    });
+    
+    assertThat(result).equalsTo([
+      "foo", 
+      "bar", 
+      "hello", 
+      "world"
+    ]);
    });
 
   it.skip("full", function() {
