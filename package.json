@@ -1,0 +1,19 @@
+{
+  "name": "feeds",
+  "version": "0.0.1",
+  "description": "",
+  "scripts": {
+    "test": "mocha -w tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jsonld-io/feeds.git"
+  },
+  "author": "",
+  "bugs": {
+    "url": "https://github.com/jsonld-io/feeds/issues"
+  },
+  "homepage": "https://github.com/jsonld-io/feeds",
+  "dependencies": {
+  }
+}
