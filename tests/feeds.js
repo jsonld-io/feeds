@@ -2,10 +2,16 @@ const Assert = require("assert");
 
 describe("feeds", async function() {
 
-  function getReader(url, fetch, token) {
+  function getReader(url, fetch, checkpoint) {
    let id = url;
-   let current;
    let i = 0;
+   let current;
+
+   if (checkpoint) {
+    [id, i] = checkpoint.split("#");
+    // starts from the next entry.
+    i++;
+   }
 
    return {
     async read() {
@@ -17,8 +23,6 @@ describe("feeds", async function() {
       current = await response.json();
      }
 
-     // console.log(current);
-
      if (current["@context"] != "https://feeds.json-ld.io/2005/Atom" ||
          current["@type"] != "Feed") {
       throw new Error(`Invalid feed format`);
@@ -29,7 +33,11 @@ describe("feeds", async function() {
      }
 
      if (i < current.entries.length) {
-      let value = current.entries[i];
+      let value = {
+       url: id,
+       index: i,
+       value: current.entries[i]
+      };
       i++;
       return {done: false, value: value};
      }
@@ -44,6 +52,7 @@ describe("feeds", async function() {
       if (!response.ok()) {
        return {done: true};
       }
+      id = next.href;
       current = await response.json();
       return this.read();
      }
@@ -57,9 +66,15 @@ describe("feeds", async function() {
    while (true) {
     const {done, value} = await reader.read();
     if (done) {
-     break;
+     return true;
     }
-    body(value);
+    try {
+     body(value.value, `${value.url}#${value.index}`);
+    } catch (e) {
+     // returns with an error and assumes that
+     // all continuation will be done in userland.
+     return false;
+    }
    }
   }
 
@@ -210,19 +225,43 @@ describe("feeds", async function() {
     ]);
    });
 
-  it.skip("checkpoints", async function() {
-    let reader = getReader({
-     "@context": "https://feeds.json-ld.io/2005/Atom",
-     "@type": "Feed",
-     "entries": ["foo", "bar"],
-    });
+  it("checkpoints", async function() {
+    let reader = getReader("./", fetcher({"./": {
+        "@context": "https://feeds.json-ld.io/2005/Atom",
+        "@type": "Feed",
+        "entries": ["foo", "bar"],
+       }
+      }));
 
     let result = [];
+    let checkpoint;
 
-    await foreach(reader, (entry, checkpoint) => {
+    let done = await foreach(reader, (entry, token) => {
       result.push(entry);
-      console.log(checkpoint);
+
+      // saves checkpoint.
+      checkpoint = token;
+
+      throw new Error("artificially created error");
     });
+
+    assertThat(checkpoint).equalsTo("./#0");
+    assertThat(done).equalsTo(false);
+
+    reader = getReader("./", fetcher({"./": {
+        "@context": "https://feeds.json-ld.io/2005/Atom",
+        "@type": "Feed",
+        "entries": ["foo", "bar"],
+       }
+      }), checkpoint);
+    done = await foreach(reader, (entry, token) => {
+      result.push(entry);
+
+      // saves checkpoint.
+      checkpoint = token;
+    });
+
+    assertThat(done).equalsTo(true);
     
     assertThat(result).equalsTo([
       "foo", 
