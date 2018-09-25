@@ -1,5 +1,6 @@
 {
   "name": "feeds",
+  "main": "feeds.js", 
   "version": "0.0.2",
   "description": "",
   "scripts": {
