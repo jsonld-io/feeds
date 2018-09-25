@@ -20,7 +20,7 @@ class Feed {
    async read() {
     if (!current) {
      let response = await fetch(id);
-     if (!response.ok()) {
+     if (!response.ok) {
       return {done: true};
      }
      current = await response.json();
@@ -52,7 +52,7 @@ class Feed {
    
     if (next) {
      let response = await fetch(next.href);
-     if (!response.ok()) {
+     if (!response.ok) {
       return {done: true};
      }
      id = next.href;

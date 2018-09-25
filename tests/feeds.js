@@ -1,4 +1,5 @@
 const Assert = require("assert");
+const fetch = require("node-fetch");
 const {Feed} = require("../feeds.js");
 
 describe("feeds", async function() {
@@ -7,9 +8,7 @@ describe("feeds", async function() {
    return (url) => {
     if (content[url]) {
      return {
-      ok() {
-       return true;
-      },
+      ok: true,
       async json() {
        return content[url];
       }
@@ -17,12 +16,36 @@ describe("feeds", async function() {
     }
 
     return {
-     ok() {
-      return false;
-     }
+     ok: false
     };
    };
   };
+
+
+  it("feeds", async function() {
+    // console.log("hi");
+    // console.log(Feed);
+
+    let url = "https://code.sgo.to/dogs/images/n02085620-Chihuahua/index.jsonld";
+    let response = await fetch(url);
+    assertThat(response.ok).equalsTo(true);
+    assertThat(response.status).equalsTo(200);
+    assertThat(response.headers.get('content-type'))
+     .equalsTo("application/ld+json");
+    let data = await response.json();
+    // console.log(data);
+
+    let reader = new Feed(url, fetch);
+
+    let result = [];
+    await reader.foreach((entry) => {
+      // console.log(entry);
+      result.push(entry);
+     });
+
+    assertThat(result.length).equalsTo(152);
+
+   });
 
   it("invalid", async function() {
     try {

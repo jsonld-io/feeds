@@ -1,6 +1,6 @@
 {
   "name": "feeds",
-  "main": "feeds.js", 
+  "main": "feeds.js",
   "version": "0.0.2",
   "description": "",
   "scripts": {
@@ -16,5 +16,6 @@
   },
   "homepage": "https://github.com/jsonld-io/feeds",
   "dependencies": {
+    "node-fetch": "^2.2.0"
   }
 }
